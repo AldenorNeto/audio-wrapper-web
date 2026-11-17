@@ -35,6 +35,18 @@
   button.primario:hover { background: #a6c4fb; }
   button.fantasma { background: transparent; color: var(--sub); }
   button.fantasma:hover { background: var(--s0); color: var(--text); }
+
+  /* Ícones SVG (no lugar de emojis) */
+  .ic { width: 1.25em; height: 1.25em; flex: none; fill: none; stroke: currentColor; stroke-width: 2;
+        stroke-linecap: round; stroke-linejoin: round; }
+  .com-icone, .pular { display: inline-flex; align-items: center; justify-content: center; gap: 6px; }
+  .pular span { font-size: 12px; font-weight: 700; font-variant-numeric: tabular-nums; }
+  #play, #mini-play { display: inline-flex; align-items: center; justify-content: center; }
+  #play .ic { width: 26px; height: 26px; margin-left: 2px; }   /* o triângulo pede um respiro à direita */
+  #mini-play .ic { width: 20px; height: 20px; margin-left: 2px; }
+  .campo { position: relative; }
+  .campo .ic { position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: var(--ov); pointer-events: none; }
+  .campo input[type=search] { padding-left: 38px; }
   input[type=search], input[type=text] { width: 100%; background: var(--mantle); border: 1px solid var(--s0); border-radius: var(--raio);
          padding: 9px 12px; min-height: 40px; }
   [hidden] { display: none !important; }
@@ -95,7 +107,7 @@
   .transc-barra { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin: 22px 0 8px; }
   .transc-barra h3 { margin: 0; font-size: 16px; flex: 1; min-width: 100%; }
   .transc-barra label { display: flex; align-items: center; gap: 6px; color: var(--sub); }
-  #tq { flex: 1; min-width: 150px; }
+  .campo-t { flex: 1; min-width: 150px; }
   #tcont { color: var(--sub); font-size: 13px; min-width: 6ch; }
   .fala { display: grid; grid-template-columns: auto 1fr; gap: 2px 10px; padding: 8px 10px; border-radius: var(--raio); }
   .fala.ativa { background: var(--s0); box-shadow: inset 3px 0 0 var(--blue); }
@@ -135,6 +147,18 @@
 </style>
 </head>
 <body>
+<!-- Ícones (traço fino, herdam a cor do texto): no lugar de emojis, que mudam de cara em cada celular -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false">
+  <symbol id="i-play" viewBox="0 0 24 24"><polygon points="7 4 20 12 7 20 7 4" fill="currentColor" stroke-width="1.5"/></symbol>
+  <symbol id="i-pause" viewBox="0 0 24 24"><rect x="6" y="4" width="4.5" height="16" rx="1.2" fill="currentColor" stroke-width="1"/><rect x="13.5" y="4" width="4.5" height="16" rx="1.2" fill="currentColor" stroke-width="1"/></symbol>
+  <symbol id="i-volta" viewBox="0 0 24 24"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></symbol>
+  <symbol id="i-avanca" viewBox="0 0 24 24"><path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/></symbol>
+  <symbol id="i-atualizar" viewBox="0 0 24 24"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M8 16H3v5"/></symbol>
+  <symbol id="i-esquerda" viewBox="0 0 24 24"><path d="m15 18-6-6 6-6"/></symbol>
+  <symbol id="i-busca" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7.5"/><path d="m21 21-4.3-4.3"/></symbol>
+  <symbol id="i-baixar" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="m7 10 5 5 5-5"/><path d="M12 15V3"/></symbol>
+  <symbol id="i-sair" viewBox="0 0 24 24"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="m16 17 5-5-5-5"/><path d="M21 12H9"/></symbol>
+</svg>
 <div id="carregando">Carregando…</div>
 
 <section id="auth" hidden>
@@ -149,11 +173,11 @@
   <aside id="lista-col">
     <div class="topo">
       <h1>Gravações <small id="contagem"></small></h1>
-      <button id="instalar" hidden>Instalar</button>
-      <button id="atualizar" class="fantasma" title="Atualizar a lista" aria-label="Atualizar a lista">↻</button>
-      <button id="sair" class="fantasma">Sair</button>
+      <button id="instalar" class="com-icone" hidden><svg class="ic"><use href="#i-baixar"/></svg>Instalar</button>
+      <button id="atualizar" class="fantasma" title="Atualizar a lista" aria-label="Atualizar a lista"><svg class="ic"><use href="#i-atualizar"/></svg></button>
+      <button id="sair" class="fantasma com-icone"><svg class="ic"><use href="#i-sair"/></svg>Sair</button>
     </div>
-    <div class="busca"><input id="q" type="search" placeholder="Buscar por assunto…" aria-label="Buscar por assunto" autocomplete="off"></div>
+    <div class="busca"><div class="campo"><svg class="ic"><use href="#i-busca"/></svg><input id="q" type="search" placeholder="Buscar por assunto…" aria-label="Buscar por assunto" autocomplete="off"></div></div>
     <div class="chips" id="chips" role="group" aria-label="Filtrar por tipo">
       <button class="chip" data-tipo="" aria-pressed="true">Todas</button>
       <button class="chip" data-tipo="aula" aria-pressed="false">Aulas</button>
@@ -168,7 +192,7 @@
   <main id="detalhe">
     <div id="placeholder">Escolha uma gravação na lista.</div>
     <div id="conteudo" hidden>
-      <button id="voltar" class="fantasma">‹ Voltar</button>
+      <button id="voltar" class="fantasma com-icone"><svg class="ic"><use href="#i-esquerda"/></svg>Voltar</button>
       <h2 id="d-titulo"></h2>
       <div id="d-meta"></div>
       <p id="d-resumo"></p>
@@ -176,9 +200,9 @@
       <div class="player">
         <audio id="audio" preload="metadata"></audio>
         <div class="controles">
-          <button id="volta15" class="pular" title="Voltar 15 s" aria-label="Voltar 15 segundos">−15</button>
-          <button id="play" disabled aria-label="Tocar">▶</button>
-          <button id="avanca15" class="pular" title="Avançar 15 s" aria-label="Avançar 15 segundos">+15</button>
+          <button id="volta15" class="pular" title="Voltar 15 s" aria-label="Voltar 15 segundos"><svg class="ic"><use href="#i-volta"/></svg><span>15</span></button>
+          <button id="play" disabled aria-label="Tocar"><svg class="ic"><use href="#i-play"/></svg></button>
+          <button id="avanca15" class="pular" title="Avançar 15 s" aria-label="Avançar 15 segundos"><span>15</span><svg class="ic"><use href="#i-avanca"/></svg></button>
           <select id="vel" aria-label="Velocidade">
             <option value="1">1×</option><option value="1.25">1,25×</option><option value="1.5">1,5×</option>
             <option value="1.75">1,75×</option><option value="2">2×</option>
@@ -190,13 +214,13 @@
           <span id="total">0:00</span>
         </div>
         <div id="estado" role="status"></div>
-        <div class="acoes"><button id="baixar">Baixar MP3</button></div>
+        <div class="acoes"><button id="baixar" class="com-icone"><svg class="ic"><use href="#i-baixar"/></svg>Baixar MP3</button></div>
       </div>
 
       <div class="transc-barra">
         <h3>Transcrição</h3>
         <label><input type="checkbox" id="thoras" checked> horários</label>
-        <input id="tq" type="search" placeholder="🔍 buscar na transcrição" aria-label="Buscar na transcrição" autocomplete="off">
+        <div class="campo campo-t"><svg class="ic"><use href="#i-busca"/></svg><input id="tq" type="search" placeholder="Buscar na transcrição" aria-label="Buscar na transcrição" autocomplete="off"></div>
         <span id="tcont"></span>
       </div>
       <div id="transc"></div>
@@ -208,7 +232,7 @@
   <button id="mini-abrir" type="button" aria-label="Abrir a gravação que está tocando">
     <span id="mini-titulo"></span><span id="mini-tempo"></span>
   </button>
-  <button id="mini-play" type="button" aria-label="Tocar">▶</button>
+  <button id="mini-play" type="button" aria-label="Tocar"><svg class="ic"><use href="#i-play"/></svg></button>
 </div>
 <footer id="versao"></footer>
 
@@ -227,7 +251,7 @@ window.addEventListener("unhandledrejection", (e) => mostrarFalha((e.reason && e
 const SUPABASE_URL = "https://pnojsmnslhzmiizghfdh.supabase.co";
 const SUPABASE_KEY = "sb_publishable_mV-yEkVoNrkL-F3nRQ5u-g_Pd-VzNNP";
 const BUCKET = "backups-audio";
-const VERSAO = "2026-11-17.2";
+const VERSAO = "2026-11-17.3";
 
 const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY, {
   auth: { lock: (_nome, _espera, fn) => fn() },   // sem "lock" entre abas (pode travar a sessão)
@@ -236,6 +260,11 @@ const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY, {
 const $ = (id) => document.getElementById(id);
 $("versao").textContent = "Versão " + VERSAO;
 const msg = (t, kind = "") => { $("msg").textContent = t; $("msg").className = kind; };
+// troca o desenho de um botão de ícone (ex.: play <-> pause)
+const iconeDe = (btn, nome) => {
+  const u = btn.querySelector("use");
+  if (u && u.getAttribute("href") !== "#i-" + nome) u.setAttribute("href", "#i-" + nome);
+};
 const pad = (n) => String(n).padStart(2, "0");
 const TIPOS = { aula: "Aula", reuniao: "Reunião", outros: "Outros" };
 const DIAS = ["dom", "seg", "ter", "qua", "qui", "sex", "sáb"];
@@ -382,7 +411,7 @@ function atualizarMini() {
   if (!ativo) return;
   $("mini-titulo").textContent = state.atual.titulo || "Gravação sem título";
   $("mini-tempo").textContent = `${fmtTempo(audio.currentTime)} / ${fmtTempo(audio.duration)}`;
-  $("mini-play").textContent = audio.paused ? "▶" : "⏸";
+  iconeDe($("mini-play"), audio.paused ? "play" : "pause");
   $("mini-play").setAttribute("aria-label", audio.paused ? "Tocar" : "Pausar");
   $("mini-barra").firstElementChild.style.width = audio.duration ? (audio.currentTime / audio.duration * 100) + "%" : "0";
 }
@@ -533,8 +562,8 @@ $("pos").addEventListener("input", () => { arrastando = true; $("atual").textCon
 $("pos").addEventListener("change", () => { audio.currentTime = (audio.duration || 0) * $("pos").value / 1000; arrastando = false; });
 
 audio.addEventListener("loadedmetadata", () => { $("play").disabled = false; $("pos").disabled = false; $("total").textContent = fmtTempo(audio.duration); audio.playbackRate = parseFloat($("vel").value); });
-audio.addEventListener("play", () => { $("play").textContent = "⏸"; $("play").setAttribute("aria-label", "Pausar"); });
-audio.addEventListener("pause", () => { $("play").textContent = "▶"; $("play").setAttribute("aria-label", "Tocar"); });
+audio.addEventListener("play", () => { iconeDe($("play"), "pause"); $("play").setAttribute("aria-label", "Pausar"); });
+audio.addEventListener("pause", () => { iconeDe($("play"), "play"); $("play").setAttribute("aria-label", "Tocar"); });
 audio.addEventListener("error", () => { if (audio.src) estado("O áudio não pôde ser tocado (link expirado ou arquivo indisponível). Abra a gravação de novo.", true); });
 audio.addEventListener("timeupdate", () => {
   if (!arrastando) {
