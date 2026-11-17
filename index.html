@@ -9,6 +9,9 @@
 <link rel="manifest" href="manifest.json">
 <link rel="icon" href="icons/icon-192.png">
 <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Gravações">
 <style>
   /* Mesma paleta (Catppuccin Mocha) do app de gravação no PC */
   :root {
@@ -18,7 +21,10 @@
     --raio: 10px;
   }
   * { box-sizing: border-box; }
-  html, body { height: 100%; margin: 0; }
+  html, body { height: 100%; margin: 0; overscroll-behavior: none; }
+  /* sensação de app: sem o brilho de toque, sem atraso no toque e sem selecionar o texto da interface */
+  html { -webkit-tap-highlight-color: transparent; touch-action: manipulation; }
+  button, .chip, .tipo, .topo, .linha1 { -webkit-user-select: none; user-select: none; }
   body { background: var(--base); color: var(--text); font: 15px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
          -webkit-text-size-adjust: 100%; }
   button, input, select { font: inherit; color: inherit; }
@@ -104,6 +110,19 @@
   #aviso { margin: 12px 14px 0; padding: 10px 12px; border-radius: var(--raio); background: #3b2a35; color: var(--red); }
   footer { position: fixed; right: 10px; bottom: 6px; font-size: 11px; color: var(--ov); pointer-events: none; }
 
+  /* Mini player: no celular, a gravação continua tocando quando você volta pra lista */
+  #mini { position: fixed; left: 0; right: 0; bottom: 0; z-index: 5; display: flex; align-items: center; gap: 4px;
+          background: var(--s0); border-top: 1px solid var(--s1); padding: 6px 10px; padding-bottom: max(6px, env(safe-area-inset-bottom)); }
+  #mini-abrir { flex: 1; min-width: 0; text-align: left; background: transparent; padding: 4px 8px; display: flex; flex-direction: column; }
+  #mini-titulo { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  #mini-tempo { color: var(--sub); font-size: 12px; font-variant-numeric: tabular-nums; }
+  #mini-play { width: 44px; height: 44px; border-radius: 50%; background: var(--blue); color: var(--crust); padding: 0; font-size: 16px; }
+  #mini-barra { position: absolute; left: 0; top: -1px; height: 2px; width: 100%; background: transparent; }
+  #mini-barra i { display: block; height: 100%; width: 0; background: var(--blue); }
+  #app.mini-ativo #lista { padding-bottom: 84px; }
+  #instalar { background: var(--blue); color: var(--crust); font-weight: 600; min-height: 34px; padding: 4px 12px; }
+  @media (min-width: 900px) { #mini { display: none !important; } #app.mini-ativo #lista { padding-bottom: 16px; } }
+
   @media (max-width: 899px) {
     #app { grid-template-columns: 1fr; }
     #app #detalhe { display: none; }
@@ -130,6 +149,7 @@
   <aside id="lista-col">
     <div class="topo">
       <h1>Gravações <small id="contagem"></small></h1>
+      <button id="instalar" hidden>Instalar</button>
       <button id="atualizar" class="fantasma" title="Atualizar a lista" aria-label="Atualizar a lista">↻</button>
       <button id="sair" class="fantasma">Sair</button>
     </div>
@@ -183,6 +203,13 @@
     </div>
   </main>
 </div>
+<div id="mini" hidden>
+  <div id="mini-barra"><i></i></div>
+  <button id="mini-abrir" type="button" aria-label="Abrir a gravação que está tocando">
+    <span id="mini-titulo"></span><span id="mini-tempo"></span>
+  </button>
+  <button id="mini-play" type="button" aria-label="Tocar">▶</button>
+</div>
 <footer id="versao"></footer>
 
 <script>
@@ -200,7 +227,7 @@ window.addEventListener("unhandledrejection", (e) => mostrarFalha((e.reason && e
 const SUPABASE_URL = "https://pnojsmnslhzmiizghfdh.supabase.co";
 const SUPABASE_KEY = "sb_publishable_mV-yEkVoNrkL-F3nRQ5u-g_Pd-VzNNP";
 const BUCKET = "backups-audio";
-const VERSAO = "2026-11-17.1";
+const VERSAO = "2026-11-17.2";
 
 const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY, {
   auth: { lock: (_nome, _espera, fn) => fn() },   // sem "lock" entre abas (pode travar a sessão)
@@ -325,12 +352,42 @@ $("atualizar").addEventListener("click", carregar);
 
 // ---- detalhe ----
 const audio = $("audio");
-function fecharDetalhe() {
+const celular = () => window.matchMedia("(max-width: 899px)").matches;
+let empilhado = false;  // o botão Voltar do celular fecha o detalhe em vez de sair do app
+
+function mostrarDetalhe() {
+  if (celular() && !empilhado) { history.pushState({ detalhe: 1 }, ""); empilhado = true; }
+  $("app").classList.add("detalhe-aberto");
+  atualizarMini();
+}
+function esconderDetalhe() {  // volta pra lista; a gravação continua tocando (mini player)
+  $("app").classList.remove("detalhe-aberto");
+  atualizarMini(); renderLista();
+}
+window.addEventListener("popstate", () => { empilhado = false; esconderDetalhe(); });
+$("voltar").addEventListener("click", () => { if (empilhado) history.back(); else esconderDetalhe(); });
+
+function fecharDetalhe() {  // para tudo (sair da conta)
   parar(); state.atual = null; state.abertura++;
   $("conteudo").hidden = true; $("placeholder").hidden = false;
   $("app").classList.remove("detalhe-aberto");
+  atualizarMini();
 }
-$("voltar").addEventListener("click", () => { fecharDetalhe(); renderLista(); });
+
+// Mini player (só no celular, quando há gravação carregada e o detalhe está fechado)
+function atualizarMini() {
+  const ativo = !!(state.atual && audio.getAttribute("src") && !$("app").classList.contains("detalhe-aberto"));
+  $("mini").hidden = !ativo;
+  $("app").classList.toggle("mini-ativo", ativo);
+  if (!ativo) return;
+  $("mini-titulo").textContent = state.atual.titulo || "Gravação sem título";
+  $("mini-tempo").textContent = `${fmtTempo(audio.currentTime)} / ${fmtTempo(audio.duration)}`;
+  $("mini-play").textContent = audio.paused ? "▶" : "⏸";
+  $("mini-play").setAttribute("aria-label", audio.paused ? "Tocar" : "Pausar");
+  $("mini-barra").firstElementChild.style.width = audio.duration ? (audio.currentTime / audio.duration * 100) + "%" : "0";
+}
+$("mini-abrir").addEventListener("click", () => { if (state.atual) mostrarDetalhe(); });
+$("mini-play").addEventListener("click", () => alternar());
 
 function parar() {
   audio.pause();
@@ -342,11 +399,12 @@ const estado = (t, erro = false) => { $("estado").textContent = t; $("estado").c
 const pad3 = (n) => String(n).padStart(3, "0");
 
 async function abrir(l) {
+  if (state.atual && state.atual.id === l.id) { mostrarDetalhe(); return; }  // já carregada: só mostra, sem recarregar nem parar
   const minha = ++state.abertura;
   parar();
   state.atual = l; state.segs = []; state.ativa = -1;
   $("placeholder").hidden = true; $("conteudo").hidden = false;
-  $("app").classList.add("detalhe-aberto");
+  mostrarDetalhe();
   $("d-titulo").textContent = l.titulo || "Gravação sem título";
   $("d-meta").textContent = [fmtData(l.gravado_em), TIPOS[l.tipo], fmtMB(l.tamanho_bytes || 0)].filter(Boolean).join(" · ");
   $("d-resumo").textContent = l.resumo || ""; $("d-resumo").hidden = !l.resumo;
@@ -530,7 +588,32 @@ if ("mediaSession" in navigator) {
   navigator.mediaSession.setActionHandler("seekforward", () => { audio.currentTime += 15; });
 }
 
-if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").catch(() => {});
+["loadedmetadata", "play", "pause", "timeupdate", "emptied"].forEach((ev) => audio.addEventListener(ev, atualizarMini));
+
+// Instalar como app (Android/Chrome). No iPhone: Compartilhar > Adicionar à Tela de Início.
+let convite = null;
+window.addEventListener("beforeinstallprompt", (e) => {
+  e.preventDefault(); convite = e;
+  if (!window.matchMedia("(display-mode: standalone)").matches) $("instalar").hidden = false;
+});
+$("instalar").addEventListener("click", async () => {
+  if (!convite) return;
+  convite.prompt(); await convite.userChoice.catch(() => {});
+  convite = null; $("instalar").hidden = true;
+});
+window.addEventListener("appinstalled", () => { $("instalar").hidden = true; });
+
+if ("serviceWorker" in navigator) {
+  // Se já havia um service worker e chegou uma versão nova, recarrega uma vez para usá-la.
+  const tinhaControle = !!navigator.serviceWorker.controller;
+  let recarregou = false;
+  navigator.serviceWorker.addEventListener("controllerchange", () => {
+    if (!tinhaControle || recarregou) return;
+    recarregou = true;
+    location.reload();
+  });
+  navigator.serviceWorker.register("sw.js").catch(() => {});
+}
 </script>
 </body>
 </html>
