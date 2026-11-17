@@ -1,0 +1,536 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#1e1e2e">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline'; img-src 'self' data:; media-src 'self' blob: https://*.supabase.co; connect-src 'self' https://*.supabase.co">
+<title>Gravações</title>
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icons/icon-192.png">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<style>
+  /* Mesma paleta (Catppuccin Mocha) do app de gravação no PC */
+  :root {
+    --base: #1e1e2e; --mantle: #181825; --crust: #11111b;
+    --s0: #313244; --s1: #45475a; --ov: #6c7086; --sub: #a6adc8; --text: #cdd6f4;
+    --blue: #89b4fa; --mauve: #cba6f7; --green: #a6e3a1; --yellow: #f9e2af; --red: #f38ba8; --peach: #fab387;
+    --raio: 10px;
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; margin: 0; }
+  body { background: var(--base); color: var(--text); font: 15px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+         -webkit-text-size-adjust: 100%; }
+  button, input, select { font: inherit; color: inherit; }
+  button { cursor: pointer; border: 0; border-radius: var(--raio); background: var(--s0); padding: 8px 14px; min-height: 40px; }
+  button:hover { background: var(--s1); }
+  button:focus-visible, input:focus-visible, select:focus-visible { outline: 2px solid var(--blue); outline-offset: 2px; }
+  button.primario { background: var(--blue); color: var(--crust); font-weight: 600; }
+  button.primario:hover { background: #a6c4fb; }
+  button.fantasma { background: transparent; color: var(--sub); }
+  button.fantasma:hover { background: var(--s0); color: var(--text); }
+  input[type=search], input[type=text] { width: 100%; background: var(--mantle); border: 1px solid var(--s0); border-radius: var(--raio);
+         padding: 9px 12px; min-height: 40px; }
+  [hidden] { display: none !important; }
+  small, .mudo { color: var(--sub); }
+
+  #carregando, #auth { min-height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center;
+         gap: 14px; padding: 24px 16px; text-align: center; }
+  #auth img { width: 84px; height: 84px; border-radius: 20px; }
+  #auth h1 { margin: 0; font-size: 26px; }
+  #auth p { margin: 0; max-width: 32ch; color: var(--sub); }
+  #msg { min-height: 1.4em; max-width: 36ch; }
+  #msg.err { color: var(--red); } #msg.ok { color: var(--green); }
+
+  /* App: lista à esquerda, detalhe à direita (no celular, um de cada vez) */
+  #app { height: 100%; display: grid; grid-template-columns: minmax(300px, 400px) 1fr; }
+  #lista-col { display: flex; flex-direction: column; min-height: 0; background: var(--mantle); border-right: 1px solid var(--s0); }
+  .topo { display: flex; align-items: center; gap: 8px; padding: 12px 14px 6px; padding-top: max(12px, env(safe-area-inset-top)); }
+  .topo h1 { margin: 0; font-size: 19px; flex: 1; }
+  .busca { padding: 6px 14px; }
+  .chips { display: flex; gap: 6px; padding: 4px 14px 10px; flex-wrap: wrap; }
+  .chip { min-height: 34px; padding: 4px 12px; border-radius: 999px; background: var(--s0); color: var(--sub); }
+  .chip[aria-pressed=true] { background: var(--blue); color: var(--crust); font-weight: 600; }
+  #lista { list-style: none; margin: 0; padding: 0 8px 16px; overflow-y: auto; flex: 1; -webkit-overflow-scrolling: touch; }
+  #lista li button { width: 100%; text-align: left; background: transparent; padding: 10px 10px; border-radius: var(--raio);
+         display: block; min-height: 0; }
+  #lista li button:hover { background: var(--s0); }
+  #lista li button[aria-current=true] { background: var(--s0); box-shadow: inset 3px 0 0 var(--blue); }
+  .linha1 { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--sub); }
+  .tipo { font-size: 12px; font-weight: 600; padding: 1px 8px; border-radius: 999px; background: var(--s1); }
+  .tipo.aula { color: var(--green); } .tipo.reuniao { color: var(--blue); } .tipo.outros { color: var(--yellow); }
+  .titulo { font-weight: 600; margin-top: 2px; overflow-wrap: anywhere; }
+  .titulo.sem { color: var(--ov); font-weight: 400; }
+  .resumo { color: var(--sub); font-size: 13px; margin-top: 2px; display: -webkit-box; -webkit-line-clamp: 2;
+         -webkit-box-orient: vertical; overflow: hidden; }
+  #vazio { padding: 24px 18px; color: var(--sub); }
+
+  #detalhe { display: flex; flex-direction: column; min-width: 0; min-height: 0; overflow-y: auto; padding: 0 22px 28px;
+         padding-bottom: max(28px, env(safe-area-inset-bottom)); -webkit-overflow-scrolling: touch; }
+  #placeholder { margin: auto; color: var(--ov); text-align: center; padding: 24px; }
+  #voltar { display: none; align-self: flex-start; margin: 10px 0 0 -10px; }
+  #d-titulo { margin: 16px 0 4px; font-size: 22px; overflow-wrap: anywhere; }
+  #d-meta { color: var(--sub); font-size: 13px; }
+  #d-resumo { margin: 10px 0 0; color: var(--text); }
+
+  .player { margin-top: 16px; background: var(--mantle); border: 1px solid var(--s0); border-radius: 14px; padding: 14px; }
+  .controles { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  #play { width: 52px; height: 52px; border-radius: 50%; background: var(--blue); color: var(--crust); font-size: 20px; padding: 0; }
+  #play:hover { background: #a6c4fb; }
+  #play:disabled { background: var(--s1); color: var(--ov); cursor: default; }
+  .controles .pular { min-width: 56px; }
+  #vel { background: var(--s0); border: 0; border-radius: var(--raio); padding: 8px; min-height: 40px; margin-left: auto; }
+  .barra { display: flex; align-items: center; gap: 10px; margin-top: 12px; font-variant-numeric: tabular-nums; font-size: 13px; color: var(--sub); }
+  #pos { flex: 1; accent-color: var(--blue); height: 28px; }
+  #estado { margin-top: 8px; min-height: 1.3em; font-size: 13px; color: var(--sub); }
+  #estado.err { color: var(--red); }
+  .acoes { margin-top: 10px; display: flex; gap: 8px; flex-wrap: wrap; }
+
+  .transc-barra { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin: 22px 0 8px; }
+  .transc-barra h3 { margin: 0; font-size: 16px; flex: 1; min-width: 100%; }
+  .transc-barra label { display: flex; align-items: center; gap: 6px; color: var(--sub); }
+  #tq { flex: 1; min-width: 150px; }
+  #tcont { color: var(--sub); font-size: 13px; min-width: 6ch; }
+  .fala { display: grid; grid-template-columns: auto 1fr; gap: 2px 10px; padding: 8px 10px; border-radius: var(--raio); }
+  .fala.ativa { background: var(--s0); box-shadow: inset 3px 0 0 var(--blue); }
+  .fala .t { grid-row: 1 / span 2; align-self: start; background: var(--s0); color: var(--blue); min-height: 0; padding: 2px 8px;
+         border-radius: 8px; font-variant-numeric: tabular-nums; font-size: 12px; margin-top: 2px; }
+  .fala .t:hover { background: var(--blue); color: var(--crust); }
+  .sem-tempo .fala { grid-template-columns: 1fr; } .sem-tempo .fala .t { display: none; }
+  .quem { font-weight: 700; font-size: 13px; }
+  .txt { overflow-wrap: anywhere; cursor: pointer; }
+  mark { background: var(--yellow); color: var(--crust); border-radius: 3px; padding: 0 1px; }
+  #sem-transc { color: var(--ov); padding: 10px; }
+  #aviso { margin: 12px 14px 0; padding: 10px 12px; border-radius: var(--raio); background: #3b2a35; color: var(--red); }
+  footer { position: fixed; right: 10px; bottom: 6px; font-size: 11px; color: var(--ov); pointer-events: none; }
+
+  @media (max-width: 899px) {
+    #app { grid-template-columns: 1fr; }
+    #app #detalhe { display: none; }
+    #app.detalhe-aberto #lista-col { display: none; }
+    #app.detalhe-aberto #detalhe { display: flex; }
+    #voltar { display: inline-flex; align-items: center; }
+    #detalhe { padding: 0 14px 28px; }
+    footer { display: none; }
+  }
+</style>
+</head>
+<body>
+<div id="carregando">Carregando…</div>
+
+<section id="auth" hidden>
+  <img src="icons/icon-192.png" alt="">
+  <h1>Gravações</h1>
+  <p>Suas gravações e transcrições, onde você estiver.</p>
+  <button id="github" class="primario">Entrar com o GitHub</button>
+  <div id="msg" role="status"></div>
+</section>
+
+<div id="app" hidden>
+  <aside id="lista-col">
+    <div class="topo">
+      <h1>Gravações <small id="contagem"></small></h1>
+      <button id="atualizar" class="fantasma" title="Atualizar a lista" aria-label="Atualizar a lista">↻</button>
+      <button id="sair" class="fantasma">Sair</button>
+    </div>
+    <div class="busca"><input id="q" type="search" placeholder="Buscar por assunto…" aria-label="Buscar por assunto" autocomplete="off"></div>
+    <div class="chips" id="chips" role="group" aria-label="Filtrar por tipo">
+      <button class="chip" data-tipo="" aria-pressed="true">Todas</button>
+      <button class="chip" data-tipo="aula" aria-pressed="false">Aulas</button>
+      <button class="chip" data-tipo="reuniao" aria-pressed="false">Reuniões</button>
+      <button class="chip" data-tipo="outros" aria-pressed="false">Outros</button>
+    </div>
+    <div id="aviso" hidden></div>
+    <ul id="lista"></ul>
+    <p id="vazio" hidden></p>
+  </aside>
+
+  <main id="detalhe">
+    <div id="placeholder">Escolha uma gravação na lista.</div>
+    <div id="conteudo" hidden>
+      <button id="voltar" class="fantasma">‹ Voltar</button>
+      <h2 id="d-titulo"></h2>
+      <div id="d-meta"></div>
+      <p id="d-resumo"></p>
+
+      <div class="player">
+        <audio id="audio" preload="metadata"></audio>
+        <div class="controles">
+          <button id="volta15" class="pular" title="Voltar 15 s" aria-label="Voltar 15 segundos">−15</button>
+          <button id="play" disabled aria-label="Tocar">▶</button>
+          <button id="avanca15" class="pular" title="Avançar 15 s" aria-label="Avançar 15 segundos">+15</button>
+          <select id="vel" aria-label="Velocidade">
+            <option value="1">1×</option><option value="1.25">1,25×</option><option value="1.5">1,5×</option>
+            <option value="1.75">1,75×</option><option value="2">2×</option>
+          </select>
+        </div>
+        <div class="barra">
+          <span id="atual">0:00</span>
+          <input id="pos" type="range" min="0" max="1000" value="0" aria-label="Posição" disabled>
+          <span id="total">0:00</span>
+        </div>
+        <div id="estado" role="status"></div>
+        <div class="acoes"><button id="baixar">Baixar MP3</button></div>
+      </div>
+
+      <div class="transc-barra">
+        <h3>Transcrição</h3>
+        <label><input type="checkbox" id="thoras" checked> horários</label>
+        <input id="tq" type="search" placeholder="🔍 buscar na transcrição" aria-label="Buscar na transcrição" autocomplete="off">
+        <span id="tcont"></span>
+      </div>
+      <div id="transc"></div>
+    </div>
+  </main>
+</div>
+<footer id="versao"></footer>
+
+<script>
+function mostrarFalha(texto) {
+  const c = document.getElementById("carregando");
+  if (c) { c.hidden = false; c.textContent = "Erro: " + texto; }
+}
+window.addEventListener("error", (e) => mostrarFalha(e.message));
+window.addEventListener("unhandledrejection", (e) => mostrarFalha((e.reason && e.reason.message) || String(e.reason)));
+</script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js" onerror="mostrarFalha('não consegui carregar a biblioteca do Supabase (verifique a internet)')"></script>
+<script>
+// Mesmo projeto Supabase do app de tarefas. A chave é a publishable (pública por desenho):
+// quem protege os dados é o login com o GitHub + as regras RLS (supabase_backup.sql).
+const SUPABASE_URL = "https://pnojsmnslhzmiizghfdh.supabase.co";
+const SUPABASE_KEY = "sb_publishable_mV-yEkVoNrkL-F3nRQ5u-g_Pd-VzNNP";
+const BUCKET = "backups-audio";
+const VERSAO = "2026-11-17.1";
+
+const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY, {
+  auth: { lock: (_nome, _espera, fn) => fn() },   // sem "lock" entre abas (pode travar a sessão)
+});
+
+const $ = (id) => document.getElementById(id);
+$("versao").textContent = "Versão " + VERSAO;
+const msg = (t, kind = "") => { $("msg").textContent = t; $("msg").className = kind; };
+const pad = (n) => String(n).padStart(2, "0");
+const TIPOS = { aula: "Aula", reuniao: "Reunião", outros: "Outros" };
+const DIAS = ["dom", "seg", "ter", "qua", "qui", "sex", "sáb"];
+
+// ---- util ----
+function norm(s) {  // sem acento e minúsculo, mantendo o mesmo comprimento (pra marcar o trecho achado)
+  let out = "";
+  for (const ch of String(s || "")) {
+    const n = ch.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
+    out += n.length === ch.length ? n : (n[0] || ch).padEnd(ch.length, " ");
+  }
+  return out;
+}
+function fmtData(iso) {
+  const d = new Date(iso); if (isNaN(d)) return "";
+  const ano = d.getFullYear() !== new Date().getFullYear() ? "/" + d.getFullYear() : "";
+  return `${DIAS[d.getDay()]} ${pad(d.getDate())}/${pad(d.getMonth() + 1)}${ano} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+function fmtTempo(seg) {
+  if (!isFinite(seg)) return "0:00";
+  seg = Math.max(0, Math.floor(seg));
+  const h = Math.floor(seg / 3600), m = Math.floor((seg % 3600) / 60), s = seg % 60;
+  return h ? `${h}:${pad(m)}:${pad(s)}` : `${m}:${pad(s)}`;
+}
+const fmtMB = (b) => (b / 1048576 >= 10 ? Math.round(b / 1048576) : (b / 1048576).toFixed(1).replace(".", ",")) + " MB";
+const slug = (s) => norm(s).replace(/[^a-z0-9]+/g, "_").replace(/^_|_$/g, "").slice(0, 60) || "gravacao";
+const guardar = (k, v) => { try { localStorage.setItem(k, v); } catch (_) {} };
+const ler = (k) => { try { return localStorage.getItem(k); } catch (_) { return null; } };
+
+// ---- estado ----
+const state = { linhas: [], tipo: "", busca: "", atual: null, abertura: 0, blobUrl: null, blob: null, segs: [], ativa: -1 };
+
+// ---- login ----
+$("github").addEventListener("click", async () => {
+  const { error } = await sb.auth.signInWithOAuth({
+    provider: "github",
+    options: { redirectTo: window.location.origin + window.location.pathname },
+  });
+  if (error) msg("Não foi possível entrar com o GitHub: " + error.message, "err");
+});
+$("sair").addEventListener("click", async () => { parar(); await sb.auth.signOut(); });
+
+function mostrar(session) {
+  $("carregando").hidden = true;
+  $("auth").hidden = !!session;
+  $("app").hidden = !session;
+  if (session) carregar(); else { state.linhas = []; fecharDetalhe(); }
+}
+let iniciou = false;
+const iniciar = (s) => { iniciou = true; mostrar(s); };
+sb.auth.onAuthStateChange((_e, session) => iniciar(session));
+sb.auth.getSession().then(({ data }) => iniciar(data.session))
+  .catch((e) => { msg("Erro ao restaurar a sessão: " + e.message, "err"); iniciar(null); });
+setTimeout(() => { if (!iniciou) iniciar(null); }, 6000);
+
+// ---- lista ----
+async function carregar() {
+  $("aviso").hidden = true;
+  const { data, error } = await sb.from("backups_audio").select("*").order("gravado_em", { ascending: false }).limit(500);
+  if (error) {
+    const faltaTabela = error.code === "PGRST205" || /backups_audio/.test(error.message || "");
+    $("aviso").textContent = faltaTabela
+      ? "A tabela de backups ainda não existe. Rode o supabase_backup.sql no SQL Editor do Supabase."
+      : "Não consegui carregar a lista: " + error.message;
+    $("aviso").hidden = false;
+    state.linhas = [];
+  } else {
+    state.linhas = data || [];
+  }
+  renderLista();
+}
+
+function filtradas() {
+  const q = norm(state.busca.trim());
+  return state.linhas.filter((l) => (!state.tipo || l.tipo === state.tipo) &&
+    (!q || norm((l.titulo || "") + " " + (l.resumo || "")).includes(q)));
+}
+
+function renderLista() {
+  const ul = $("lista"); ul.textContent = "";
+  const lista = filtradas();
+  $("contagem").textContent = state.linhas.length ? `· ${lista.length}${lista.length !== state.linhas.length ? " de " + state.linhas.length : ""}` : "";
+  for (const l of lista) {
+    const li = document.createElement("li"), b = document.createElement("button");
+    b.type = "button"; b.dataset.id = l.id;
+    if (state.atual && state.atual.id === l.id) b.setAttribute("aria-current", "true");
+    const l1 = document.createElement("div"); l1.className = "linha1";
+    const d = document.createElement("span"); d.textContent = fmtData(l.gravado_em);
+    l1.append(d);
+    if (TIPOS[l.tipo]) { const t = document.createElement("span"); t.className = "tipo " + l.tipo; t.textContent = TIPOS[l.tipo]; l1.append(t); }
+    const tam = document.createElement("span"); tam.style.marginLeft = "auto"; tam.textContent = fmtMB(l.tamanho_bytes || 0); l1.append(tam);
+    const tit = document.createElement("div"); tit.className = "titulo" + (l.titulo ? "" : " sem");
+    tit.textContent = l.titulo || "Gravação sem título";
+    b.append(l1, tit);
+    if (l.resumo) { const r = document.createElement("div"); r.className = "resumo"; r.textContent = l.resumo; b.append(r); }
+    b.addEventListener("click", () => abrir(l));
+    li.append(b); ul.append(li);
+  }
+  const vazio = $("vazio");
+  if (!lista.length) {
+    vazio.hidden = false;
+    vazio.textContent = state.linhas.length ? "Nada encontrado com esse filtro."
+      : ($("aviso").hidden ? "Nenhum backup ainda. As gravações aparecem aqui depois que o app do PC envia." : "");
+  } else vazio.hidden = true;
+}
+$("q").addEventListener("input", (e) => { state.busca = e.target.value; renderLista(); });
+$("chips").addEventListener("click", (e) => {
+  const c = e.target.closest(".chip"); if (!c) return;
+  state.tipo = c.dataset.tipo;
+  document.querySelectorAll(".chip").forEach((x) => x.setAttribute("aria-pressed", String(x === c)));
+  renderLista();
+});
+$("atualizar").addEventListener("click", carregar);
+
+// ---- detalhe ----
+const audio = $("audio");
+function fecharDetalhe() {
+  parar(); state.atual = null; state.abertura++;
+  $("conteudo").hidden = true; $("placeholder").hidden = false;
+  $("app").classList.remove("detalhe-aberto");
+}
+$("voltar").addEventListener("click", () => { fecharDetalhe(); renderLista(); });
+
+function parar() {
+  audio.pause();
+  audio.removeAttribute("src"); audio.load();
+  if (state.blobUrl) URL.revokeObjectURL(state.blobUrl);
+  state.blobUrl = null; state.blob = null;
+}
+const estado = (t, erro = false) => { $("estado").textContent = t; $("estado").className = erro ? "err" : ""; };
+const pad3 = (n) => String(n).padStart(3, "0");
+
+async function abrir(l) {
+  const minha = ++state.abertura;
+  parar();
+  state.atual = l; state.segs = []; state.ativa = -1;
+  $("placeholder").hidden = true; $("conteudo").hidden = false;
+  $("app").classList.add("detalhe-aberto");
+  $("d-titulo").textContent = l.titulo || "Gravação sem título";
+  $("d-meta").textContent = [fmtData(l.gravado_em), TIPOS[l.tipo], fmtMB(l.tamanho_bytes || 0)].filter(Boolean).join(" · ");
+  $("d-resumo").textContent = l.resumo || ""; $("d-resumo").hidden = !l.resumo;
+  $("play").disabled = true; $("pos").disabled = true; $("pos").value = 0;
+  $("atual").textContent = "0:00"; $("total").textContent = "0:00";
+  $("transc").textContent = ""; $("tcont").textContent = ""; $("tq").value = "";
+  renderLista();
+  $("detalhe").scrollTop = 0;
+  carregarTranscricao(l, minha);
+  carregarAudio(l, minha);
+}
+
+async function carregarAudio(l, minha) {
+  const partes = l.partes || 1;
+  estado("Preparando o áudio…");
+  try {
+    if (partes === 1) {
+      const { data, error } = await sb.storage.from(BUCKET).createSignedUrl(l.caminho_mp3, 3600);
+      if (error) throw error;
+      if (minha !== state.abertura) return;
+      audio.src = data.signedUrl;
+    } else {
+      // arquivo grande: o plano gratuito aceita 50 MB por arquivo, então ele foi guardado em partes
+      const blobs = [];
+      for (let i = 1; i <= partes; i++) {
+        estado(`Baixando o áudio: parte ${i} de ${partes}…`);
+        const { data, error } = await sb.storage.from(BUCKET).download(`${l.caminho_mp3}.parte${pad3(i)}`);
+        if (error) throw error;
+        if (minha !== state.abertura) return;
+        blobs.push(data);
+      }
+      state.blob = new Blob(blobs, { type: "audio/mpeg" });
+      state.blobUrl = URL.createObjectURL(state.blob);
+      audio.src = state.blobUrl;
+    }
+    audio.playbackRate = parseFloat($("vel").value);
+    estado("");
+  } catch (e) {
+    if (minha === state.abertura) estado("Não consegui carregar o áudio: " + (e.message || e), true);
+  }
+}
+
+async function baixarTexto(caminho) {
+  const { data, error } = await sb.storage.from(BUCKET).download(caminho);
+  return error ? null : data.text();
+}
+
+async function carregarTranscricao(l, minha) {
+  const raiz = l.caminho_mp3.replace(/\.mp3$/, "");
+  let segs = null;
+  const json = await baixarTexto(raiz + "_api.json");
+  if (json) { try { segs = JSON.parse(json).segments; } catch (_) {} }
+  if (!segs) {
+    const txt = await baixarTexto(raiz + "_api.txt");
+    if (txt) segs = txt.split(/\n\n+/).filter(Boolean).map((p) => {
+      const m = p.match(/^\[([^\]]+)\]\s*([\s\S]*)$/);
+      return { speaker: m ? m[1] : "", text: m ? m[2] : p, start_ms: null };
+    });
+  }
+  if (minha !== state.abertura) return;
+  state.segs = segs || [];
+  renderTranscricao();
+}
+
+const CORES = { "Você": "var(--blue)", "Outros": "var(--mauve)" };
+const EXTRAS = ["var(--green)", "var(--peach)", "var(--yellow)", "var(--red)"];
+const corDe = (nome) => CORES[nome] || (CORES[nome] = EXTRAS[Object.keys(CORES).length % EXTRAS.length]);
+
+function renderTranscricao() {
+  const box = $("transc"); box.textContent = "";
+  box.classList.toggle("sem-tempo", !$("thoras").checked || state.segs.every((s) => s.start_ms == null));
+  if (!state.segs.length) {
+    const p = document.createElement("div"); p.id = "sem-transc"; p.textContent = "Sem transcrição para esta gravação (ainda).";
+    box.append(p); $("tcont").textContent = ""; return;
+  }
+  const q = norm($("tq").value.trim());
+  let achados = 0;
+  state.segs.forEach((s, i) => {
+    const texto = String(s.text || "");
+    const alvo = norm(texto);
+    if (q && !alvo.includes(q)) return;
+    const f = document.createElement("div"); f.className = "fala"; f.dataset.i = i;
+    if (s.start_ms != null) {
+      const t = document.createElement("button"); t.type = "button"; t.className = "t"; t.textContent = fmtTempo(s.start_ms / 1000);
+      t.setAttribute("aria-label", "Ouvir a partir de " + t.textContent);
+      t.addEventListener("click", () => irPara(s.start_ms));
+      f.append(t);
+    }
+    const quem = document.createElement("span"); quem.className = "quem"; quem.textContent = s.speaker || "";
+    quem.style.color = corDe(s.speaker);
+    const txt = document.createElement("span"); txt.className = "txt";
+    if (q) {
+      let pos = 0, k;
+      while ((k = alvo.indexOf(q, pos)) !== -1) {
+        txt.append(texto.slice(pos, k));
+        const m = document.createElement("mark"); m.textContent = texto.slice(k, k + q.length); txt.append(m);
+        pos = k + q.length; achados++;
+      }
+      txt.append(texto.slice(pos));
+    } else txt.textContent = texto;
+    if (s.start_ms != null) txt.addEventListener("click", () => irPara(s.start_ms));
+    f.append(quem, txt); box.append(f);
+  });
+  $("tcont").textContent = q ? `${achados} ${achados === 1 ? "trecho" : "trechos"}` : "";
+  if (q && !achados) { const p = document.createElement("div"); p.id = "sem-transc"; p.textContent = "Nada encontrado."; box.append(p); }
+  marcarAtiva(true);
+}
+$("tq").addEventListener("input", renderTranscricao);
+$("thoras").addEventListener("change", () => { guardar("horas", $("thoras").checked ? "1" : "0"); renderTranscricao(); });
+if (ler("horas") === "0") $("thoras").checked = false;
+
+// ---- player ----
+function irPara(ms) {
+  if (!audio.src) return;
+  audio.currentTime = ms / 1000;
+  audio.play().catch(() => {});
+}
+const alternar = () => { if (!audio.src) return; audio.paused ? audio.play().catch(() => {}) : audio.pause(); };
+$("play").addEventListener("click", alternar);
+$("volta15").addEventListener("click", () => { audio.currentTime = Math.max(0, audio.currentTime - 15); });
+$("avanca15").addEventListener("click", () => { audio.currentTime = Math.min(audio.duration || 1e9, audio.currentTime + 15); });
+$("vel").addEventListener("change", () => { audio.playbackRate = parseFloat($("vel").value); guardar("vel", $("vel").value); });
+{ const v = ler("vel"); if (v && [...$("vel").options].some((o) => o.value === v)) $("vel").value = v; }
+let arrastando = false;
+$("pos").addEventListener("input", () => { arrastando = true; $("atual").textContent = fmtTempo((audio.duration || 0) * $("pos").value / 1000); });
+$("pos").addEventListener("change", () => { audio.currentTime = (audio.duration || 0) * $("pos").value / 1000; arrastando = false; });
+
+audio.addEventListener("loadedmetadata", () => { $("play").disabled = false; $("pos").disabled = false; $("total").textContent = fmtTempo(audio.duration); audio.playbackRate = parseFloat($("vel").value); });
+audio.addEventListener("play", () => { $("play").textContent = "⏸"; $("play").setAttribute("aria-label", "Pausar"); });
+audio.addEventListener("pause", () => { $("play").textContent = "▶"; $("play").setAttribute("aria-label", "Tocar"); });
+audio.addEventListener("error", () => { if (audio.src) estado("O áudio não pôde ser tocado (link expirado ou arquivo indisponível). Abra a gravação de novo.", true); });
+audio.addEventListener("timeupdate", () => {
+  if (!arrastando) {
+    $("atual").textContent = fmtTempo(audio.currentTime);
+    if (audio.duration) $("pos").value = Math.round(audio.currentTime / audio.duration * 1000);
+  }
+  marcarAtiva(false);
+});
+
+function marcarAtiva(forcar) {
+  const ms = audio.currentTime * 1000;
+  let idx = -1;
+  for (let i = 0; i < state.segs.length; i++) { const s = state.segs[i]; if (s.start_ms != null && s.start_ms <= ms) idx = i; else if (s.start_ms != null) break; }
+  if (idx === state.ativa && !forcar) return;
+  state.ativa = idx;
+  document.querySelectorAll(".fala.ativa").forEach((e) => e.classList.remove("ativa"));
+  const el = document.querySelector(`.fala[data-i="${idx}"]`);
+  if (el) { el.classList.add("ativa"); if (!audio.paused) el.scrollIntoView({ block: "nearest", behavior: "smooth" }); }
+}
+
+$("baixar").addEventListener("click", async () => {
+  const l = state.atual; if (!l) return;
+  const nome = `${new Date(l.gravado_em).toLocaleDateString("sv-SE")}_${slug(l.titulo)}.mp3`;
+  const a = document.createElement("a");
+  if ((l.partes || 1) === 1) {
+    const { data, error } = await sb.storage.from(BUCKET).createSignedUrl(l.caminho_mp3, 300, { download: nome });
+    if (error) return estado("Não consegui gerar o download: " + error.message, true);
+    a.href = data.signedUrl;
+  } else if (state.blobUrl) { a.href = state.blobUrl; }
+  else return estado("Espere o áudio terminar de carregar para baixar.", true);
+  a.download = nome; document.body.append(a); a.click(); a.remove();
+});
+
+// Atalhos: espaço toca/pausa (menos quando estiver digitando), setas pulam 5 s
+document.addEventListener("keydown", (e) => {
+  if (e.target.closest("input[type=search], input[type=text], select, textarea") || e.ctrlKey || e.metaKey || e.altKey) return;
+  if (!state.atual || !audio.src) return;
+  if (e.code === "Space" && !e.target.closest("button")) { e.preventDefault(); alternar(); }
+  else if (e.code === "ArrowLeft") { audio.currentTime = Math.max(0, audio.currentTime - 5); }
+  else if (e.code === "ArrowRight") { audio.currentTime = Math.min(audio.duration || 1e9, audio.currentTime + 5); }
+});
+
+// Controles na tela de bloqueio do celular
+if ("mediaSession" in navigator) {
+  audio.addEventListener("loadedmetadata", () => {
+    if (state.atual) navigator.mediaSession.metadata = new MediaMetadata({ title: state.atual.titulo || "Gravação", artist: "Gravações" });
+  });
+  navigator.mediaSession.setActionHandler("play", () => audio.play());
+  navigator.mediaSession.setActionHandler("pause", () => audio.pause());
+  navigator.mediaSession.setActionHandler("seekbackward", () => { audio.currentTime = Math.max(0, audio.currentTime - 15); });
+  navigator.mediaSession.setActionHandler("seekforward", () => { audio.currentTime += 15; });
+}
+
+if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").catch(() => {});
+</script>
+</body>
+</html>
